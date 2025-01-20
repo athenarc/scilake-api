@@ -1,0 +1,106 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+.pipenv/
+.pytest_cache/
+
+# pip cache
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Celery beat schedule file
+celerybeat-schedule
+
+# dotenv environment variable files
+.env
+.env.*
+!.env.example
+
+# Pyre type checker
+.pyre/
+
+# Logs and debug files
+*.log
+*.out
+*.err
+
+# System-specific
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# MacOS-specific
+*.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows-specific
+Desktop.ini
+$RECYCLE.BIN/
+
+# Build artifacts for Python/Cython
+*.pyd
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Other tooling
+.mypy_cache/
+.pyre/
+.pytype/
