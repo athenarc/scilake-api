@@ -124,3 +124,98 @@ def get_publications(
 
     driver = get_driver(database)
     return driver.execute_query(query, params, result_transformer_=mappers.to_publications)
+
+
+def get_authors(
+    database: str,
+    where: Optional[AuthorWhereFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+    sort_by: str = "id",
+    sort_order: str = "DESC",
+    selected_fields: List[str] = None
+) -> List[Author]:
+
+    selected_fields = selected_fields or []
+    
+    include_publications = "publications" in selected_fields
+
+    params = {
+        "skip": (page - 1) * page_size,
+        "limit": page_size
+    }
+
+    match_clauses = ["MATCH (a:Author)"]  # Base MATCH for authors
+    optional_match_clauses = []
+    where_clauses = []
+
+    # Build WHERE conditions based on filter
+    def build_where_clause(filter_obj: AuthorWhereFilter) -> str:
+        clauses = []
+
+        def add_clause(field: str, filter_data: StringFilter):
+            param_name = field.replace(".", "_")
+
+            if filter_data.equals:
+                clauses.append(f"{field} = ${param_name}")
+                params[param_name] = filter_data.equals
+            if filter_data.contains:
+                clauses.append(f"{field} CONTAINS ${param_name}_contains")
+                params[f"{param_name}_contains"] = filter_data.contains
+            if filter_data.in_list:
+                clauses.append(f"{field} IN ${param_name}_in")
+                params[f"{param_name}_in"] = filter_data.in_list
+
+        if filter_obj.AND:
+            and_clauses = [build_where_clause(f) for f in filter_obj.AND]
+            clauses.append(f"({' AND '.join(and_clauses)})")
+        if filter_obj.OR:
+            or_clauses = [build_where_clause(f) for f in filter_obj.OR]
+            clauses.append(f"({' OR '.join(or_clauses)})")
+
+        if filter_obj.author:
+            if filter_obj.author.id:
+                add_clause("a.id", filter_obj.author.id)
+            if filter_obj.author.fullname:
+                add_clause("a.fullname", filter_obj.author.fullname)
+
+        if filter_obj.publication:
+            match_clauses.append("MATCH (a)-[:AUTHORED]->(p:Publication)")  # Strict MATCH
+            if filter_obj.publication.id:
+                add_clause("p.id", filter_obj.publication.id)
+            if filter_obj.publication.title:
+                add_clause("p.title", filter_obj.publication.title)
+            if filter_obj.publication.pids:
+                clauses.append("p.pids IN $p_pids")
+                params["p_pids"] = filter_obj.publication.pids
+
+        return " AND ".join(clauses)
+
+    # Ensure OPTIONAL MATCH for requested fields (avoid filtering out results)
+    if include_publications and not any("MATCH (a)-[:AUTHORED]->(p:Publication)" in clause for clause in match_clauses):
+        optional_match_clauses.append("OPTIONAL MATCH (a)-[:AUTHORED]->(p:Publication)")
+
+    # Apply filtering if `where` is provided
+    if where:
+        where_clause = build_where_clause(where)
+        if where_clause:
+            where_clauses.append(where_clause)
+
+    # Construct final Cypher query
+    query = f"""
+    {" ".join(match_clauses)}
+    {"WHERE " + " AND ".join(where_clauses) if where_clauses else ""}
+    {" ".join(optional_match_clauses)}
+    WITH a 
+    {", collect(p) AS publications" if include_publications else ""}
+    RETURN a 
+    {", publications" if include_publications else ""}
+    ORDER BY a.{sort_by} {sort_order}
+    SKIP $skip
+    LIMIT $limit
+    """
+
+    logger.info(f"Generated Cypher Query:\n{query}\nParameters: {params}")
+
+    driver = get_driver(database)
+    return driver.execute_query(query, params, result_transformer_=mappers.to_authors)

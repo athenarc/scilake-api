@@ -18,6 +18,9 @@ class Publication:
 class Author:
     id: str
     fullname: str
+
+    #related entities
+    publications: List[Publication] = None
     
 @strawberry.type
 class Venue:
@@ -64,3 +67,11 @@ class PublicationWhereFilter:
     author: Optional[AuthorFilter] = None
     venue: Optional[VenueFilter] = None
     subject: Optional[SubjectFilter] = None
+
+@strawberry.input
+class AuthorWhereFilter:
+    AND: Optional[List["AuthorWhereFilter"]] = None
+    OR: Optional[List["AuthorWhereFilter"]] = None
+    author: Optional[AuthorFilter] = None
+    publication: Optional[PublicationFilter] = None
+

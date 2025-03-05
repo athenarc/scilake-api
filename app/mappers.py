@@ -10,3 +10,11 @@ def to_publications(results):
         publication_data["authors"] = [Author(**author) for author in record.get("authors", [])]
         publications.append(Publication(**publication_data))
     return publications
+
+def to_authors(results):
+    authors = []
+    for record in results:
+        author_data = {key: record["a"].get(key) for key in record["a"].keys()}
+        author_data["publications"] = [Publication(**publication) for publication in record.get("publications", [])]
+        authors.append(Author(**author_data))
+    return authors
