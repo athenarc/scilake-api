@@ -1,7 +1,66 @@
 import strawberry
+from typing import Optional, List
 
 @strawberry.type
 class Publication:
-    doi: str
-    pmc_id: str
-    year: int
+    id: str
+    pids: List[str]
+    title: str
+    publicationdate: Optional[str] = None
+    publisher: Optional[str] = None
+
+    # related entities 
+    authors: List["Author"] = None
+    venue: Optional["Venue"] = None
+    subjects: List["Subject"] = None
+
+@strawberry.type
+class Author:
+    id: str
+    fullname: str
+    
+@strawberry.type
+class Venue:
+    name: str
+
+@strawberry.type
+class Subject:
+    name: str
+    scheme: str
+
+
+#filters 
+@strawberry.input
+class StringFilter:
+    equals: Optional[str] = None
+    contains: Optional[str] = None
+    in_list: Optional[List[str]] = None
+
+@strawberry.input
+class PublicationFilter:
+    id: Optional[StringFilter] = None
+    title: Optional[StringFilter] = None
+    pids: Optional[List[str]] = None  # Exact match only
+
+@strawberry.input
+class AuthorFilter:
+    id: Optional[StringFilter] = None
+    fullname: Optional[StringFilter] = None
+
+@strawberry.input
+class VenueFilter:
+    name: Optional[StringFilter] = None
+
+@strawberry.input
+class SubjectFilter:
+    name: Optional[StringFilter] = None
+    scheme: Optional[StringFilter] = None
+
+@strawberry.input
+class PublicationWhereFilter:
+    AND: Optional[List["PublicationWhereFilter"]] = None
+    OR: Optional[List["PublicationWhereFilter"]] = None
+    publication: Optional[PublicationFilter] = None
+    author: Optional[AuthorFilter] = None
+    venue: Optional[VenueFilter] = None
+    subject: Optional[SubjectFilter] = None
