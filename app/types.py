@@ -31,7 +31,9 @@ class Subject:
     name: str
     scheme: str
 
-
+    #related entities
+    publications: List[Publication] = None
+    
 #filters 
 @strawberry.input
 class StringFilter:
@@ -73,5 +75,12 @@ class AuthorWhereFilter:
     AND: Optional[List["AuthorWhereFilter"]] = None
     OR: Optional[List["AuthorWhereFilter"]] = None
     author: Optional[AuthorFilter] = None
+    publication: Optional[PublicationFilter] = None
+
+@strawberry.input
+class SubjectWhereFilter:
+    AND: Optional[List["SubjectWhereFilter"]] = None
+    OR: Optional[List["SubjectWhereFilter"]] = None
+    subject: Optional[SubjectFilter] = None
     publication: Optional[PublicationFilter] = None
 

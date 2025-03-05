@@ -18,3 +18,11 @@ def to_authors(results):
         author_data["publications"] = [Publication(**publication) for publication in record.get("publications", [])]
         authors.append(Author(**author_data))
     return authors
+
+def to_subjects(results):
+    subjects = []
+    for record in results:
+        subject_data = {key: record["s"].get(key) for key in record["s"].keys()}
+        subject_data["publications"] = [Publication(**publication) for publication in record.get("publications", [])]
+        subjects.append(Subject(**subject_data))
+    return subjects
