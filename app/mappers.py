@@ -26,3 +26,11 @@ def to_subjects(results):
         subject_data["publications"] = [Publication(**publication) for publication in record.get("publications", [])]
         subjects.append(Subject(**subject_data))
     return subjects
+
+def to_venues(results):
+    venues = []
+    for record in results:
+        venue_data = {"name": record["v"].get("name")}
+        venue_data["publications"] = [Publication(**publication) for publication in record.get("publications", [])]
+        venues.append(Venue(**venue_data))
+    return venues
