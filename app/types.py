@@ -4,15 +4,20 @@ from typing import Optional, List
 @strawberry.type
 class Publication:
     id: str
-    pids: List[str]
     title: str
     publicationdate: Optional[str] = None
     publisher: Optional[str] = None
 
     # related entities 
+    pids: List["Pid"] = None
     authors: List["Author"] = None
     venue: Optional["Venue"] = None
     subjects: List["Subject"] = None
+
+@strawberry.type
+class Pid:
+    value: str
+    scheme: str
 
 @strawberry.type
 class Author:
@@ -28,7 +33,7 @@ class Venue:
 
     #related entities
     publications: List[Publication] = None
-    
+
 @strawberry.type
 class Subject:
     name: str
@@ -48,7 +53,7 @@ class StringFilter:
 class PublicationFilter:
     id: Optional[StringFilter] = None
     title: Optional[StringFilter] = None
-    pids: Optional[List[str]] = None  # Exact match only
+    pids: Optional["PidFilter"] = None
 
 @strawberry.input
 class AuthorFilter:
@@ -63,6 +68,11 @@ class VenueFilter:
 class SubjectFilter:
     name: Optional[StringFilter] = None
     scheme: Optional[StringFilter] = None
+
+@strawberry.input
+class PidFilter:
+    scheme: Optional[StringFilter] = None
+    value: Optional[StringFilter] = None
 
 @strawberry.input
 class PublicationWhereFilter:

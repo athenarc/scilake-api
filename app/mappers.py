@@ -8,6 +8,7 @@ def to_publications(results):
         publication_data["subjects"] = [Subject(**subject) for subject in record.get("subjects", [])]
         publication_data["venue"] = Venue(name=record.get("venue")) if record.get("venue") else None
         publication_data["authors"] = [Author(**author) for author in record.get("authors", [])]
+        publication_data["pids"] = [Pid(**pid) for pid in record.get("pids", [])]
         publications.append(Publication(**publication_data))
     return publications
 

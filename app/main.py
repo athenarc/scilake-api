@@ -6,7 +6,7 @@ from app.queries import Queries
 schema = strawberry.Schema(query=Queries)
 
 # Create the FastAPI app and GraphQL router
-graphql_app = GraphQLRouter(schema)
+graphql_app = GraphQLRouter(schema, graphiql=True)
 app = FastAPI()
 
 # Add the GraphQL endpoint

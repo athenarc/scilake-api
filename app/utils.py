@@ -17,7 +17,32 @@ def get_graph_db(headers):
                            request header with one of the following values: 'neuro', 'transport', 'transport-ccam', 'energy'")
     return graph_db
 
-def get_selected_fields(selections):
+# def get_selected_fields(selections):
         
-    # Extract the names of the selected fields into a set
-    return {selection.name for selection in selections}
+#     # Extract the names of the selected fields into a set
+#     return {selection.name for selection in selections}
+
+def get_selected_fields(selections, prefix=""):
+    """
+    Recursively extract selected fields from GraphQL query selections.
+    
+    Args:
+        selections: The selections from GraphQL resolver.
+        prefix: The current nested path (used for nested fields).
+        
+    Returns:
+        A set of fully qualified field paths (e.g., "publications.subjects").
+    """
+    selected_fields = set()
+
+    for selection in selections:
+        field_name = selection.name
+        full_field_name = f"{prefix}.{field_name}" if prefix else field_name
+        
+        selected_fields.add(full_field_name)
+
+        # Recursively process nested fields
+        if hasattr(selection, "selections") and selection.selections:
+            selected_fields.update(get_selected_fields(selection.selections, full_field_name))
+
+    return selected_fields
