@@ -11,6 +11,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the application files
 COPY . .
 
+# Ensure the .env file is copied
+COPY .env .env
+
+# Create a directory for logs
+RUN mkdir -p /app/logs
+
 # Expose the application port
 EXPOSE 8000
 

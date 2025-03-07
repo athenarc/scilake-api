@@ -1,12 +1,8 @@
-import logging
+from app.logger import logger
 from app.types import *
 from app.utils import get_driver
 from typing import Optional, List
 import app.mappers as mappers
-
-# Initialize logger
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 
 def get_publications(
