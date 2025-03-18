@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scilake - Lake API</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/static/favicon.ico" />
+
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- GraphiQL -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/graphiql@3/graphiql.min.css" />
+  <script crossorigin src="https://cdn.jsdelivr.net/npm/graphiql@3/graphiql.min.js"></script>
+
+  <style>
+    body, html {
+      height: 100%;
+      margin: 0;
+      font-family: sans-serif;
+    }
+    #graphiql {
+      height: 100vh;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="graphiql">Loading GraphiQL...</div>
+
+  <script>
+    const fetcher = async (graphQLParams, opts) => {
+      const headers = opts.headers || {};
+      const response = await fetch('/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify(graphQLParams),
+      });
+      return response.json();
+    };
+
+    ReactDOM.render(
+      React.createElement(GraphiQL, {
+        fetcher,
+        defaultEditorToolsVisibility: "headers", // show headers by default
+        defaultQuery: `# Welcome to Scilake Lake API!
+
+# This is a GraphQL playground where you can explore the schema and run queries.
+# You can browse the schema and all available types on the Docs tab on the left.
+# Start by typing a query here and press the play button (or press Ctrl-Enter) to execute it.
+
+# Example query: 
+query {
+  getPublications {
+    id
+    title
+  }
+}
+  
+# Finally, you should properly set the 'graphdb' header to one of the following values: 'neuro', 'transport', 'transport-ccam', 'energy'.
+`,
+        defaultHeaders: JSON.stringify({
+          "graphdb": "[replace-with-your-graphdb]",
+        }, null, 2),
+      }),
+      document.getElementById('graphiql')
+    );
+  </script>
+</body>
+
+</html>
