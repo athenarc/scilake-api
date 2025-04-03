@@ -60,6 +60,8 @@ def get_research_products(
                 add_clause("p.id", filter_obj.research_product.id)
             if filter_obj.research_product.title:
                 add_clause("p.title", filter_obj.research_product.title)
+            if filter_obj.research_product.product_type:
+                add_clause("p.product_type", filter_obj.research_product.product_type)
             if filter_obj.research_product.pids:
                 match_clauses.append("MATCH (p)-[:HAS_PID]->(pid:Pid)")
                 if filter_obj.research_product.pids.scheme:
@@ -189,6 +191,8 @@ def get_agents(
                 add_clause("p.id", filter_obj.research_product.id)
             if filter_obj.research_product.title:
                 add_clause("p.title", filter_obj.research_product.title)
+            if filter_obj.research_product.product_type:
+                add_clause("p.product_type", filter_obj.research_product.product_type)
 
         return " AND ".join(clauses)
 
@@ -282,6 +286,8 @@ def get_topics(
                 add_clause("p.id", filter_obj.research_product.id)
             if filter_obj.research_product.title:
                 add_clause("p.title", filter_obj.research_product.title)
+            if filter_obj.research_product.product_type:
+                add_clause("p.product_type", filter_obj.research_product.product_type)
 
         return " AND ".join(clauses)
 
@@ -372,6 +378,8 @@ def get_venues(
                 add_clause("p.id", filter_obj.research_product.id)
             if filter_obj.research_product.title:
                 add_clause("p.title", filter_obj.research_product.title)
+            if filter_obj.research_product.product_type:
+                add_clause("p.product_type", filter_obj.research_product.product_type)
 
         return " AND ".join(clauses)
 

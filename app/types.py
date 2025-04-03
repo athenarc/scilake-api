@@ -55,6 +55,7 @@ class ResearchProductFilter:
     id: Optional[StringFilter] = None
     title: Optional[StringFilter] = None
     pids: Optional["PidFilter"] = None
+    product_type: Optional[StringFilter] = None
 
 @strawberry.input
 class AgentFilter:
