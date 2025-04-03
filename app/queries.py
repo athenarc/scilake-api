@@ -9,22 +9,22 @@ import app.utils as utils
 @strawberry.type
 class Queries:
 
-    @strawberry.field(description="Retrieve a paginated list of publications with filtering and sorting.")
-    def get_publications(
+    @strawberry.field(description="Retrieve a paginated list of research products with filtering and sorting.")
+    def get_research_products(
         self,
-        where: Optional[PublicationWhereFilter] = None,  # Now using structured filtering
+        where: Optional[ResearchProductWhereFilter] = None,  # Now using structured filtering
         page: Optional[int] = 1,  # Default page number
         page_size: Optional[int] = 10,  # Default number of results per page
         sort_by: Optional[str] = "id",  # Default sorting field
         sort_order: Optional[str] = "DESC",  # Default sorting order
         info: Info = None
-    ) -> List[Publication]:
+    ) -> List[ResearchProduct]:
     
         graph_db = utils.get_graph_db(info.context["request"].headers)
 
         selected_fields = utils.get_selected_fields(info.selected_fields[0].selections)
 
-        publications = resolvers.get_publications(
+        rps = resolvers.get_research_products(
             database=graph_db, 
             where=where,
             page=page,
@@ -34,24 +34,24 @@ class Queries:
             selected_fields=selected_fields 
         )
 
-        return publications
+        return rps
 
-    @strawberry.field(description="Retrieve a paginated list of authors with filtering and sorting.")
-    def get_authors(
+    @strawberry.field(description="Retrieve a paginated list of agents with filtering and sorting.")
+    def get_agents(
         self,
-        where: Optional[AuthorWhereFilter] = None,  # Now using structured filtering
+        where: Optional[AgentWhereFilter] = None,  # Now using structured filtering
         page: Optional[int] = 1,  # Default page number
         page_size: Optional[int] = 10,  # Default number of results per page
         sort_by: Optional[str] = "id",  # Default sorting field
         sort_order: Optional[str] = "DESC",  # Default sorting order
         info: Info = None
-    ) -> List[Author]:
+    ) -> List[Agent]:
     
         graph_db = utils.get_graph_db(info.context["request"].headers)
 
         selected_fields = utils.get_selected_fields(info.selected_fields[0].selections)
 
-        authors = resolvers.get_authors(
+        agents = resolvers.get_agents(
             database=graph_db, 
             where=where,
             page=page,
@@ -61,26 +61,26 @@ class Queries:
             selected_fields=selected_fields
         )
 
-        return authors
+        return agents
     
 
 
-    @strawberry.field(description="Retrieve a paginated list of subjects with filtering and sorting.")
-    def get_subjects(
+    @strawberry.field(description="Retrieve a paginated list of topics with filtering and sorting.")
+    def get_topics(
         self,
-        where: Optional[SubjectWhereFilter] = None,  # Now using structured filtering
+        where: Optional[TopicWhereFilter] = None,  # Now using structured filtering
         page: Optional[int] = 1,  # Default page number
         page_size: Optional[int] = 10,  # Default number of results per page
         sort_by: Optional[str] = "id",  # Default sorting field
         sort_order: Optional[str] = "DESC",  # Default sorting order
         info: Info = None
-    ) -> List[Subject]:
+    ) -> List[Topic]:
     
         graph_db = utils.get_graph_db(info.context["request"].headers)
 
         selected_fields = utils.get_selected_fields(info.selected_fields[0].selections)
 
-        subjects = resolvers.get_subjects(
+        topics = resolvers.get_topics(
             database=graph_db, 
             where=where,
             page=page,
@@ -90,7 +90,7 @@ class Queries:
             selected_fields=selected_fields
         )
 
-        return subjects
+        return topics
     
     @strawberry.field(description="Retrieve a paginated list of venues with filtering and sorting.")
     def get_venues(
@@ -101,7 +101,7 @@ class Queries:
         sort_by: Optional[str] = "id",  # Default sorting field
         sort_order: Optional[str] = "DESC",  # Default sorting order
         info: Info = None
-    ) -> List[Subject]:
+    ) -> List[Venue]:
     
         graph_db = utils.get_graph_db(info.context["request"].headers)
 

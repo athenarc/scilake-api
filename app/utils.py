@@ -31,7 +31,7 @@ def get_selected_fields(selections, prefix=""):
         prefix: The current nested path (used for nested fields).
         
     Returns:
-        A set of fully qualified field paths (e.g., "publications.subjects").
+        A set of fully qualified field paths (e.g., "research_products.topics").
     """
     selected_fields = set()
 

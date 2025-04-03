@@ -2,17 +2,18 @@ import strawberry
 from typing import Optional, List
 
 @strawberry.type
-class Publication:
+class ResearchProduct:
     id: str
     title: str
+    product_type: str
     publicationdate: Optional[str] = None
     publisher: Optional[str] = None
 
     # related entities 
     pids: List["Pid"] = None
-    authors: List["Author"] = None
+    agents: List["Agent"] = None
     venue: Optional["Venue"] = None
-    subjects: List["Subject"] = None
+    topics: List["Topic"] = None
 
 @strawberry.type
 class Pid:
@@ -20,27 +21,27 @@ class Pid:
     scheme: str
 
 @strawberry.type
-class Author:
+class Agent:
     id: str
     fullname: str
 
     #related entities
-    publications: List[Publication] = None
+    research_products: List[ResearchProduct] = None
     
 @strawberry.type
 class Venue:
     name: str
 
     #related entities
-    publications: List[Publication] = None
+    research_products: List[ResearchProduct] = None
 
 @strawberry.type
-class Subject:
+class Topic:
     name: str
     scheme: str
 
     #related entities
-    publications: List[Publication] = None
+    research_products: List[ResearchProduct] = None
     
 #filters 
 @strawberry.input
@@ -50,13 +51,13 @@ class StringFilter:
     in_list: Optional[List[str]] = None
 
 @strawberry.input
-class PublicationFilter:
+class ResearchProductFilter:
     id: Optional[StringFilter] = None
     title: Optional[StringFilter] = None
     pids: Optional["PidFilter"] = None
 
 @strawberry.input
-class AuthorFilter:
+class AgentFilter:
     id: Optional[StringFilter] = None
     fullname: Optional[StringFilter] = None
 
@@ -65,7 +66,7 @@ class VenueFilter:
     name: Optional[StringFilter] = None
 
 @strawberry.input
-class SubjectFilter:
+class TopicFilter:
     name: Optional[StringFilter] = None
     scheme: Optional[StringFilter] = None
 
@@ -75,31 +76,31 @@ class PidFilter:
     value: Optional[StringFilter] = None
 
 @strawberry.input
-class PublicationWhereFilter:
-    AND: Optional[List["PublicationWhereFilter"]] = None
-    OR: Optional[List["PublicationWhereFilter"]] = None
-    publication: Optional[PublicationFilter] = None
-    author: Optional[AuthorFilter] = None
+class ResearchProductWhereFilter:
+    AND: Optional[List["ResearchProductWhereFilter"]] = None
+    OR: Optional[List["ResearchProductWhereFilter"]] = None
+    research_product: Optional[ResearchProductFilter] = None
+    agent: Optional[AgentFilter] = None
     venue: Optional[VenueFilter] = None
-    subject: Optional[SubjectFilter] = None
+    topic: Optional[TopicFilter] = None
 
 @strawberry.input
-class AuthorWhereFilter:
-    AND: Optional[List["AuthorWhereFilter"]] = None
-    OR: Optional[List["AuthorWhereFilter"]] = None
-    author: Optional[AuthorFilter] = None
-    publication: Optional[PublicationFilter] = None
+class AgentWhereFilter:
+    AND: Optional[List["AgentWhereFilter"]] = None
+    OR: Optional[List["AgentWhereFilter"]] = None
+    agent: Optional[AgentFilter] = None
+    research_product: Optional[ResearchProductFilter] = None
 
 @strawberry.input
-class SubjectWhereFilter:
-    AND: Optional[List["SubjectWhereFilter"]] = None
-    OR: Optional[List["SubjectWhereFilter"]] = None
-    subject: Optional[SubjectFilter] = None
-    publication: Optional[PublicationFilter] = None
+class TopicWhereFilter:
+    AND: Optional[List["TopicWhereFilter"]] = None
+    OR: Optional[List["TopicWhereFilter"]] = None
+    topic: Optional[TopicFilter] = None
+    research_product: Optional[ResearchProductFilter] = None
 
 @strawberry.input
 class VenueWhereFilter:
     AND: Optional[List["VenueWhereFilter"]] = None
     OR: Optional[List["VenueWhereFilter"]] = None
     venue: Optional[VenueFilter] = None
-    publication: Optional[PublicationFilter] = None
+    research_product: Optional[ResearchProductFilter] = None

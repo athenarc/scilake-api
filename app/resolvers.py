@@ -5,21 +5,21 @@ from typing import Optional, List
 import app.mappers as mappers
 
 
-def get_publications(
+def get_research_products(
     database: str,
-    where: Optional[PublicationWhereFilter] = None,
+    where: Optional[ResearchProductWhereFilter] = None,
     page: int = 1,
     page_size: int = 10,
     sort_by: str = "id",
     sort_order: str = "DESC",
     selected_fields: List[str] = None
-) -> List[Publication]:
+) -> List[ResearchProduct]:
 
     selected_fields = selected_fields or []
 
-    include_subjects = "subjects" in selected_fields
+    include_topics = "topics" in selected_fields
     include_venues = "venue" in selected_fields
-    include_authors = "authors" in selected_fields
+    include_agents = "agents" in selected_fields
     include_pids = "pids" in selected_fields
 
     params = {
@@ -27,12 +27,12 @@ def get_publications(
         "limit": page_size
     }
 
-    match_clauses = ["MATCH (p:Publication)"]  # Start with base MATCH
+    match_clauses = ["MATCH (p:ResearchProduct)"]  # Start with base MATCH
     optional_match_clauses = []  # Store OPTIONAL MATCH clauses
     where_clauses = []
 
     # Convert `where` object to Cypher conditions
-    def build_where_clause(filter_obj: PublicationWhereFilter) -> str:
+    def build_where_clause(filter_obj: ResearchProductWhereFilter) -> str:
         clauses = []
 
         def add_clause(field: str, filter_data: StringFilter):
@@ -55,36 +55,36 @@ def get_publications(
             or_clauses = [build_where_clause(f) for f in filter_obj.OR]
             clauses.append(f"({' OR '.join(or_clauses)})")
 
-        if filter_obj.publication:
-            if filter_obj.publication.id:
-                add_clause("p.id", filter_obj.publication.id)
-            if filter_obj.publication.title:
-                add_clause("p.title", filter_obj.publication.title)
-            if filter_obj.publication.pids:
+        if filter_obj.research_product:
+            if filter_obj.research_product.id:
+                add_clause("p.id", filter_obj.research_product.id)
+            if filter_obj.research_product.title:
+                add_clause("p.title", filter_obj.research_product.title)
+            if filter_obj.research_product.pids:
                 match_clauses.append("MATCH (p)-[:HAS_PID]->(pid:Pid)")
-                if filter_obj.publication.pids.scheme:
-                    add_clause("pid.scheme", filter_obj.publication.pids.scheme)
-                if filter_obj.publication.pids.value:
-                    add_clause("pid.value", filter_obj.publication.pids.value)
+                if filter_obj.research_product.pids.scheme:
+                    add_clause("pid.scheme", filter_obj.research_product.pids.scheme)
+                if filter_obj.research_product.pids.value:
+                    add_clause("pid.value", filter_obj.research_product.pids.value)
 
-        if filter_obj.author:
-            match_clauses.append("MATCH (p)<-[:AUTHORED]-(a:Author)")
-            if filter_obj.author.id:
-                add_clause("a.id", filter_obj.author.id)
+        if filter_obj.agent:
+            match_clauses.append("MATCH (p)<-[:AUTHORED]-(a:Agent)")
+            if filter_obj.agent.id:
+                add_clause("a.id", filter_obj.agent.id)
             if filter_obj.author.name:
-                add_clause("a.name", filter_obj.author.name)
+                add_clause("a.name", filter_obj.agent.name)
 
         if filter_obj.venue:
             match_clauses.append("MATCH (p)-[:PUBLISHED_IN]->(v:Venue)")
             if filter_obj.venue.name:
                 add_clause("v.name", filter_obj.venue.name)
 
-        if filter_obj.subject:
-            match_clauses.append("MATCH (p)-[:HAS_SUBJECT]->(s:Subject)")
-            if filter_obj.subject.name:
-                add_clause("s.name", filter_obj.subject.name)
-            if filter_obj.subject.scheme:
-                add_clause("s.scheme", filter_obj.subject.scheme)
+        if filter_obj.topic:
+            match_clauses.append("MATCH (p)-[:HAS_SUBJECT]->(t:Topic)")
+            if filter_obj.topic.name:
+                add_clause("t.name", filter_obj.topic.name)
+            if filter_obj.topic.scheme:
+                add_clause("t.scheme", filter_obj.topic.scheme)
 
         return " AND ".join(clauses)
     
@@ -95,12 +95,12 @@ def get_publications(
             where_clauses.append(where_clause)
 
     # Ensure OPTIONAL MATCH for requested fields (avoid filtering out results)
-    if include_authors and not any("MATCH (p)<-[:AUTHORED]-(a:Author)" in clause for clause in match_clauses):
-        optional_match_clauses.append("OPTIONAL MATCH (p)<-[:AUTHORED]-(a:Author)")
+    if include_agents and not any("MATCH (p)<-[:AUTHORED]-(a:Agent)" in clause for clause in match_clauses):
+        optional_match_clauses.append("OPTIONAL MATCH (p)<-[:AUTHORED]-(a:Agent)")
     if include_venues and not any("MATCH (p)-[:PUBLISHED_IN]->(v:Venue)" in clause for clause in match_clauses):
         optional_match_clauses.append("OPTIONAL MATCH (p)-[:PUBLISHED_IN]->(v:Venue)")
-    if include_subjects and not any("MATCH (p)-[:HAS_SUBJECT]->(s:Subject)" in clause for clause in match_clauses):
-        optional_match_clauses.append("OPTIONAL MATCH (p)-[:HAS_SUBJECT]->(s:Subject)")
+    if include_topics and not any("MATCH (p)-[:HAS_SUBJECT]->(t:Topic)" in clause for clause in match_clauses):
+        optional_match_clauses.append("OPTIONAL MATCH (p)-[:HAS_SUBJECT]->(t:Topic)")
     if include_pids and not any("MATCH (p)-[:HAS_PID]->(pid:Pid)" in clause for clause in match_clauses):
         optional_match_clauses.append("OPTIONAL MATCH (p)-[:HAS_PID]->(pid:Pid)")
 
@@ -110,14 +110,14 @@ def get_publications(
     {"WHERE " + " AND ".join(where_clauses) if where_clauses else ""}
     {" ".join(optional_match_clauses)}
     WITH p 
-    {", collect(s) AS subjects" if include_subjects else ""} 
+    {", collect(t) AS topics" if include_topics else ""} 
     {", head(collect(v.name)) AS venue" if include_venues else ""} 
-    {", collect(a) AS authors" if include_authors else ""}
+    {", collect(a) AS agents" if include_agents else ""}
     {", collect(pid) AS pids" if include_pids else ""}
     RETURN p 
-    {", subjects" if include_subjects else ""} 
+    {", topics" if include_topics else ""} 
     {", venue" if include_venues else ""} 
-    {", authors" if include_authors else ""}
+    {", agents" if include_agents else ""}
     {", pids" if include_pids else ""}
     ORDER BY p.{sort_by} {sort_order}
     SKIP $skip
@@ -127,34 +127,34 @@ def get_publications(
     logger.info(f"Generated Cypher Query:\n{query}\nParameters: {params}")
 
     driver = get_driver(database)
-    return driver.execute_query(query, params, result_transformer_=mappers.to_publications)
+    return driver.execute_query(query, params, result_transformer_=mappers.to_research_products)
 
 
-def get_authors(
+def get_agents(
     database: str,
-    where: Optional[AuthorWhereFilter] = None,
+    where: Optional[AgentWhereFilter] = None,
     page: int = 1,
     page_size: int = 10,
     sort_by: str = "id",
     sort_order: str = "DESC",
     selected_fields: List[str] = None
-) -> List[Author]:
+) -> List[Agent]:
 
     selected_fields = selected_fields or []
     
-    include_publications = "publications" in selected_fields
+    include_research_products = "researchProducts" in selected_fields
 
     params = {
         "skip": (page - 1) * page_size,
         "limit": page_size
     }
 
-    match_clauses = ["MATCH (a:Author)"]  # Base MATCH for authors
+    match_clauses = ["MATCH (a:Agent)"]  # Base MATCH for agents
     optional_match_clauses = []
     where_clauses = []
 
     # Build WHERE conditions based on filter
-    def build_where_clause(filter_obj: AuthorWhereFilter) -> str:
+    def build_where_clause(filter_obj: AgentWhereFilter) -> str:
         clauses = []
 
         def add_clause(field: str, filter_data: StringFilter):
@@ -177,18 +177,18 @@ def get_authors(
             or_clauses = [build_where_clause(f) for f in filter_obj.OR]
             clauses.append(f"({' OR '.join(or_clauses)})")
 
-        if filter_obj.author:
-            if filter_obj.author.id:
-                add_clause("a.id", filter_obj.author.id)
-            if filter_obj.author.fullname:
-                add_clause("a.fullname", filter_obj.author.fullname)
+        if filter_obj.agent:
+            if filter_obj.agent.id:
+                add_clause("a.id", filter_obj.agent.id)
+            if filter_obj.agent.fullname:
+                add_clause("a.fullname", filter_obj.agent.fullname)
 
-        if filter_obj.publication:
-            match_clauses.append("MATCH (a)-[:AUTHORED]->(p:Publication)")  # Strict MATCH
-            if filter_obj.publication.id:
-                add_clause("p.id", filter_obj.publication.id)
-            if filter_obj.publication.title:
-                add_clause("p.title", filter_obj.publication.title)
+        if filter_obj.research_product:
+            match_clauses.append("MATCH (a)-[:AUTHORED]->(p:ResearchProduct)")  # Strict MATCH
+            if filter_obj.research_product.id:
+                add_clause("p.id", filter_obj.research_product.id)
+            if filter_obj.research_product.title:
+                add_clause("p.title", filter_obj.research_product.title)
 
         return " AND ".join(clauses)
 
@@ -199,8 +199,8 @@ def get_authors(
             where_clauses.append(where_clause)
 
     # Ensure OPTIONAL MATCH for requested fields (avoid filtering out results)
-    if include_publications and not any("MATCH (a)-[:AUTHORED]->(p:Publication)" in clause for clause in match_clauses):
-        optional_match_clauses.append("OPTIONAL MATCH (a)-[:AUTHORED]->(p:Publication)")
+    if include_research_products and not any("MATCH (a)-[:AUTHORED]->(p:ResearchProduct)" in clause for clause in match_clauses):
+        optional_match_clauses.append("OPTIONAL MATCH (a)-[:AUTHORED]->(p:ResearchProduct)")
 
     # Construct final Cypher query
     query = f"""
@@ -208,45 +208,46 @@ def get_authors(
     {"WHERE " + " AND ".join(where_clauses) if where_clauses else ""}
     {" ".join(optional_match_clauses)}
     WITH a 
-    {", collect(p) AS publications" if include_publications else ""}
+    {", collect(p) AS research_products" if include_research_products else ""}
     RETURN a 
-    {", publications" if include_publications else ""}
+    {", research_products" if include_research_products else ""}
     ORDER BY a.{sort_by} {sort_order}
     SKIP $skip
     LIMIT $limit
     """
+    print(query)
 
     logger.info(f"Generated Cypher Query:\n{query}\nParameters: {params}")
 
     driver = get_driver(database)
-    return driver.execute_query(query, params, result_transformer_=mappers.to_authors)
+    return driver.execute_query(query, params, result_transformer_=mappers.to_agents)
 
 
-def get_subjects(
+def get_topics(
     database: str,
-    where: Optional[SubjectWhereFilter] = None,
+    where: Optional[TopicWhereFilter] = None,
     page: int = 1,
     page_size: int = 10,
     sort_by: str = "name",
     sort_order: str = "ASC",
     selected_fields: List[str] = None
-) -> List[Subject]:
+) -> List[Topic]:
 
     selected_fields = selected_fields or []
     
-    include_publications = "publications" in selected_fields
+    include_research_products = "researchProducts" in selected_fields
 
     params = {
         "skip": (page - 1) * page_size,
         "limit": page_size
     }
 
-    match_clauses = ["MATCH (s:Subject)"]  # Base MATCH for subjects
+    match_clauses = ["MATCH (s:Topic)"]  # Base MATCH for topics
     optional_match_clauses = []
     where_clauses = []
 
     # Build WHERE conditions based on filter
-    def build_where_clause(filter_obj: SubjectWhereFilter) -> str:
+    def build_where_clause(filter_obj: TopicWhereFilter) -> str:
         clauses = []
 
         def add_clause(field: str, filter_data: StringFilter):
@@ -269,18 +270,18 @@ def get_subjects(
             or_clauses = [build_where_clause(f) for f in filter_obj.OR]
             clauses.append(f"({' OR '.join(or_clauses)})")
 
-        if filter_obj.subject:
-            if filter_obj.subject.name:
-                add_clause("s.name", filter_obj.subject.name)
-            if filter_obj.subject.scheme:
-                add_clause("s.scheme", filter_obj.subject.scheme)
+        if filter_obj.topic:
+            if filter_obj.topic.name:
+                add_clause("s.name", filter_obj.topic.name)
+            if filter_obj.topic.scheme:
+                add_clause("s.scheme", filter_obj.topic.scheme)
 
-        if filter_obj.publication:
-            match_clauses.append("MATCH (s)<-[:HAS_SUBJECT]-(p:Publication)")  # Strict MATCH
-            if filter_obj.publication.id:
-                add_clause("p.id", filter_obj.publication.id)
-            if filter_obj.publication.title:
-                add_clause("p.title", filter_obj.publication.title)
+        if filter_obj.research_product:
+            match_clauses.append("MATCH (s)<-[:HAS_SUBJECT]-(p:ResearchProduct)")  # Strict MATCH
+            if filter_obj.research_product.id:
+                add_clause("p.id", filter_obj.research_product.id)
+            if filter_obj.research_product.title:
+                add_clause("p.title", filter_obj.research_product.title)
 
         return " AND ".join(clauses)
 
@@ -291,8 +292,8 @@ def get_subjects(
             where_clauses.append(where_clause)
 
     # Ensure OPTIONAL MATCH for requested fields (avoid filtering out results)
-    if include_publications and not any("MATCH (s)<-[:HAS_SUBJECT]-(p:Publication)" in clause for clause in match_clauses):
-        optional_match_clauses.append("OPTIONAL MATCH (s)<-[:HAS_SUBJECT]-(p:Publication)")
+    if include_research_products and not any("MATCH (s)<-[:HAS_SUBJECT]-(p:ResearchProduct)" in clause for clause in match_clauses):
+        optional_match_clauses.append("OPTIONAL MATCH (s)<-[:HAS_SUBJECT]-(p:ResearchProduct)")
 
     # Construct final Cypher query
     query = f"""
@@ -300,9 +301,9 @@ def get_subjects(
     {"WHERE " + " AND ".join(where_clauses) if where_clauses else ""}
     {" ".join(optional_match_clauses)}
     WITH s 
-    {", collect(p) AS publications" if include_publications else ""}
+    {", collect(p) AS research_products" if include_research_products else ""}
     RETURN s 
-    {", publications" if include_publications else ""}
+    {", research_products" if include_research_products else ""}
     ORDER BY s.{sort_by} {sort_order}
     SKIP $skip
     LIMIT $limit
@@ -311,7 +312,7 @@ def get_subjects(
     logger.info(f"Generated Cypher Query:\n{query}\nParameters: {params}")
 
     driver = get_driver(database)
-    return driver.execute_query(query, params, result_transformer_=mappers.to_subjects)
+    return driver.execute_query(query, params, result_transformer_=mappers.to_topics)
 
 
 def get_venues(
@@ -326,7 +327,7 @@ def get_venues(
 
     selected_fields = selected_fields or []
     
-    include_publications = "publications" in selected_fields
+    include_research_products = "researchProducts" in selected_fields
 
     params = {
         "skip": (page - 1) * page_size,
@@ -365,12 +366,12 @@ def get_venues(
             if filter_obj.venue.name:
                 add_clause("v.name", filter_obj.venue.name)
 
-        if filter_obj.publication:
-            match_clauses.append("MATCH (v)<-[:PUBLISHED_IN]-(p:Publication)")  # Strict MATCH
-            if filter_obj.publication.id:
-                add_clause("p.id", filter_obj.publication.id)
-            if filter_obj.publication.title:
-                add_clause("p.title", filter_obj.publication.title)
+        if filter_obj.research_product:
+            match_clauses.append("MATCH (v)<-[:PUBLISHED_IN]-(p:ResearchProduct)")  # Strict MATCH
+            if filter_obj.research_product.id:
+                add_clause("p.id", filter_obj.research_product.id)
+            if filter_obj.research_product.title:
+                add_clause("p.title", filter_obj.research_product.title)
 
         return " AND ".join(clauses)
 
@@ -381,8 +382,8 @@ def get_venues(
             where_clauses.append(where_clause)
 
     # Ensure OPTIONAL MATCH for requested fields (avoid filtering out results)
-    if include_publications and not any("MATCH (v)<-[:PUBLISHED_IN]-(p:Publication)" in clause for clause in match_clauses):
-        optional_match_clauses.append("OPTIONAL MATCH (v)<-[:PUBLISHED_IN]-(p:Publication)")
+    if include_research_products and not any("MATCH (v)<-[:PUBLISHED_IN]-(p:ResearchProduct)" in clause for clause in match_clauses):
+        optional_match_clauses.append("OPTIONAL MATCH (v)<-[:PUBLISHED_IN]-(p:ResearchProduct)")
 
     # Construct final Cypher query
     query = f"""
@@ -390,9 +391,9 @@ def get_venues(
     {"WHERE " + " AND ".join(where_clauses) if where_clauses else ""}
     {" ".join(optional_match_clauses)}
     WITH v 
-    {", collect(p) AS publications" if include_publications else ""}
+    {", collect(p) AS research_products" if include_research_products else ""}
     RETURN v 
-    {", publications" if include_publications else ""}
+    {", research_products" if include_research_products else ""}
     ORDER BY v.{sort_by} {sort_order}
     SKIP $skip
     LIMIT $limit
