@@ -58,13 +58,13 @@
 
 # Example query: 
 query {
-  getResearchProducts {
+  getProducts {
     id
     title
   }
 }
   
-# Finally, you should properly set the 'graphdb' header to one of the following values: 'neuro', 'transport', 'transport-ccam', 'energy'.
+# Finally, you should properly set the 'graphdb' header to one of the following values: 'neuroscience', 'transport-maritime', 'transport-ccam', 'energy', 'cancer'.
 `,
         defaultHeaders: JSON.stringify({
           "graphdb": "[replace-with-your-graphdb]",

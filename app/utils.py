@@ -1,6 +1,7 @@
 from app.config import drivers
 from graphql import GraphQLError
 
+
 def get_driver(database: str):
     """
     Retrieve the driver for a specific database.
@@ -11,10 +12,20 @@ def get_driver(database: str):
 
 
 def get_graph_db(headers):
+    """
+    Resolve and validate the target graph database from request headers.
+    """
     graph_db = headers.get("graphdb")
-    if not graph_db:
-        raise GraphQLError("Missing 'graphdb' parameter; please provide a 'graphdb' \
-                           request header with one of the following values: 'neuro', 'transport', 'transport-ccam', 'energy'")
+
+    allowed_graphs = list(drivers.keys())
+    allowed_str = "', '".join(allowed_graphs)
+
+    if not graph_db or graph_db not in drivers:
+        raise GraphQLError(
+            f"Missing or invalid 'graphdb' parameter; please provide a 'graphdb' "
+            f"request header with one of the following values: '{allowed_str}'"
+        )
+
     return graph_db
 
 # def get_selected_fields(selections):
