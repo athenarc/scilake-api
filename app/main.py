@@ -10,7 +10,10 @@ from pathlib import Path
 schema = strawberry.Schema(query=Queries)
 
 # Create the FastAPI app and GraphQL router
-graphql_app = GraphQLRouter(schema, graphiql=False)
+# Avoid passing graphiql flag here to stay compatible with
+# Strawberry/FastAPI versions where GraphQLRouter forwards
+# unknown kwargs to APIRouter.
+graphql_app = GraphQLRouter(schema)
 app = FastAPI()
 
 # Mount static files
