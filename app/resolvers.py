@@ -1,7 +1,7 @@
 from app.logger import logger
 from app.types import *
 from app.utils import get_driver
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import app.mappers as mappers
 
 
@@ -672,4 +672,905 @@ def get_products(
 
     driver = get_driver(database)
     return driver.execute_query(query, params, result_transformer_=mappers.to_products)
+
+
+def _add_string_filter_clauses(
+    alias: str,
+    filter_input: Any,
+    field_map: Dict[str, str],
+    where_clauses: List[str],
+    params: Dict[str, Any],
+) -> None:
+    """
+    Helper to turn a *Filter input (with StringFilter fields) into Cypher WHERE clauses.
+
+    alias: variable alias in Cypher (e.g. 'vt' for VehicleType)
+    filter_input: e.g. VehicleTypeFilter, TechniqueFilter, etc.
+    field_map: mapping from filter attribute name -> property name on the node.
+    """
+
+    def add_string_filter(field: str, flt: StringFilter):
+        param_base = field.replace(".", "_")
+
+        if getattr(flt, "equals", None) is not None:
+            where_clauses.append(f"{field} = ${param_base}_eq")
+            params[f"{param_base}_eq"] = flt.equals
+        if getattr(flt, "contains", None) is not None:
+            where_clauses.append(f"{field} CONTAINS ${param_base}_contains")
+            params[f"{param_base}_contains"] = flt.contains
+        if getattr(flt, "in_list", None) is not None:
+            where_clauses.append(f"{field} IN ${param_base}_in")
+            params[f"{param_base}_in"] = flt.in_list
+
+    if not filter_input:
+        return
+
+    for attr, prop in field_map.items():
+        flt = getattr(filter_input, attr, None)
+        if flt:
+            add_string_filter(f"{alias}.{prop}", flt)
+
+
+def _map_product_node_to_product(product_node: Dict[str, Any]) -> Product:
+    """
+    Lightweight Product mapper for enrichment queries.
+    Maps core scalar fields; related collections stay empty.
+    """
+    return Product(
+        id=product_node.get("local_identifier"),
+        title=product_node.get("title"),
+        product_type=product_node.get("product_type"),
+        abstract=product_node.get("abstract"),
+        publicationdate=product_node.get("publication_date"),
+        publisher=None,
+        citation_count=product_node.get("citation_count"),
+        citation_count_class=product_node.get("citation_count_class"),
+        influence=product_node.get("influence"),
+        influence_class=product_node.get("influence_class"),
+        popularity=product_node.get("popularity"),
+        popularity_class=product_node.get("popularity_class"),
+        impulse=product_node.get("impulse"),
+        impulse_class=product_node.get("impulse_class"),
+        repro_rci=product_node.get("repro_rci"),
+        repro_focused_rci=product_node.get("repro_focused_rci"),
+        repro_positive_mentions_count=product_node.get("repro_positive_mentions_count"),
+        entity_type=product_node.get("entity_type"),
+        pids=[],
+        agents=[],
+        topics=[],
+        grants=[],
+        manifestations=[],
+        research_artifacts=[],
+        technologies=[],
+        graph_enrichments=None,
+    )
+
+
+def _get_enrichment_with_products(
+    database: str,
+    label: str,
+    alias: str,
+    filter_input: Any,
+    field_map: Dict[str, str],
+    page: int,
+    page_size: int,
+) -> List[Dict[str, Any]]:
+    """
+    Generic helper that fetches enrichment entities with pagination.
+    Returns raw dicts: {"entity": <node props>}.
+    """
+    params: Dict[str, Any] = {"skip": (page - 1) * page_size, "limit": page_size}
+    where_clauses: List[str] = []
+
+    _add_string_filter_clauses(alias, filter_input, field_map, where_clauses, params)
+
+    query = f"""
+    MATCH ({alias}:{label})
+    {"WHERE " + " AND ".join(where_clauses) if where_clauses else ""}
+    WITH {alias}
+    SKIP $skip
+    LIMIT $limit
+    RETURN {alias} AS entity
+    """
+
+    logger.info(f"Generated enrichment query for {label}:\n{query}\nParameters: {params}")
+    driver = get_driver(database)
+    records, _, _ = driver.execute_query(query, params)
+
+    results: List[Dict[str, Any]] = []
+    for record in records:
+        entity_node = record["entity"]
+        results.append({"entity": entity_node})
+    return results
+
+
+# Enrichment resolvers: Energy
+
+def get_energy_types(
+    database: str,
+    where: Optional[EnergyTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[EnergyType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="EnergyType",
+        alias="et",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[EnergyType] = []
+    for rec in records:
+        node = rec["entity"]
+        energy_type = EnergyType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(energy_type)
+    return results
+
+
+def get_energy_storages(
+    database: str,
+    where: Optional[EnergyStorageFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[EnergyStorage]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="EnergyStorage",
+        alias="es",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[EnergyStorage] = []
+    for rec in records:
+        node = rec["entity"]
+        energy_storage = EnergyStorage(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(energy_storage)
+    return results
+
+
+def get_geographic_entities(
+    database: str,
+    where: Optional[GeographicEntityFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[GeographicEntity]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="GeographicEntity",
+        alias="ge",
+        filter_input=where,
+        field_map={
+            "local_identifier": "local_identifier",
+            "name": "name",
+            "display_name": "display_name",
+            "wikidata": "wikidata",
+        },
+        page=page,
+        page_size=page_size,
+    )
+    results: List[GeographicEntity] = []
+    for rec in records:
+        node = rec["entity"]
+        geographic_entity = GeographicEntity(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            display_name=node.get("display_name"),
+            lat=node.get("lat"),
+            lon=node.get("lon"),
+            wikidata=node.get("wikidata"),
+        )
+        results.append(geographic_entity)
+    return results
+
+
+# Enrichment resolvers: Neuroscience
+
+def get_techniques(
+    database: str,
+    where: Optional[TechniqueFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Technique]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="Technique",
+        alias="technique",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[Technique] = []
+    for rec in records:
+        node = rec["entity"]
+        technique = Technique(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(technique)
+    return results
+
+
+def get_species(
+    database: str,
+    where: Optional[SpeciesFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Species]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="Species",
+        alias="species",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[Species] = []
+    for rec in records:
+        node = rec["entity"]
+        species = Species(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(species)
+    return results
+
+
+def get_uberon_parcellations(
+    database: str,
+    where: Optional[UBERONParcellationFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[UBERONParcellation]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="UBERONParcellation",
+        alias="uberon",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[UBERONParcellation] = []
+    for rec in records:
+        node = rec["entity"]
+        uberon = UBERONParcellation(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(uberon)
+    return results
+
+
+def get_biological_sexes(
+    database: str,
+    where: Optional[BiologicalSexFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[BiologicalSex]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="BiologicalSex",
+        alias="biosex",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[BiologicalSex] = []
+    for rec in records:
+        node = rec["entity"]
+        biosex = BiologicalSex(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(biosex)
+    return results
+
+
+def get_preparation_types(
+    database: str,
+    where: Optional[PreparationTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[PreparationType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="PreparationType",
+        alias="prep",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[PreparationType] = []
+    for rec in records:
+        node = rec["entity"]
+        prep = PreparationType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(prep)
+    return results
+
+
+# Enrichment resolvers: Transport-CCAM
+
+def get_communication_types(
+    database: str,
+    where: Optional[CommunicationTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[CommunicationType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="CommunicationType",
+        alias="comm_type",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[CommunicationType] = []
+    for rec in records:
+        node = rec["entity"]
+        comm = CommunicationType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(comm)
+    return results
+
+
+def get_entity_connection_types(
+    database: str,
+    where: Optional[EntityConnectionTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[EntityConnectionType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="EntityConnectionType",
+        alias="entity_conn_type",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[EntityConnectionType] = []
+    for rec in records:
+        node = rec["entity"]
+        ect = EntityConnectionType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(ect)
+    return results
+
+
+def get_levels_of_automation(
+    database: str,
+    where: Optional[LevelOfAutomationFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[LevelOfAutomation]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="LevelOfAutomation",
+        alias="loa",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[LevelOfAutomation] = []
+    for rec in records:
+        node = rec["entity"]
+        loa = LevelOfAutomation(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(loa)
+    return results
+
+
+def get_scenario_types(
+    database: str,
+    where: Optional[ScenarioTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[ScenarioType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="ScenarioType",
+        alias="scenario_type",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[ScenarioType] = []
+    for rec in records:
+        node = rec["entity"]
+        scenario = ScenarioType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(scenario)
+    return results
+
+
+def get_sensor_types(
+    database: str,
+    where: Optional[SensorTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[SensorType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="SensorType",
+        alias="sensor_type",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[SensorType] = []
+    for rec in records:
+        node = rec["entity"]
+        sensor = SensorType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(sensor)
+    return results
+
+
+def get_vehicle_types(
+    database: str,
+    where: Optional[VehicleTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[VehicleType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="VehicleType",
+        alias="vt",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[VehicleType] = []
+    for rec in records:
+        node = rec["entity"]
+        vt = VehicleType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(vt)
+    return results
+
+
+def get_vru_types(
+    database: str,
+    where: Optional[VRUTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[VRUType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="VRUType",
+        alias="vru_type",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "source": "source"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[VRUType] = []
+    for rec in records:
+        node = rec["entity"]
+        vru = VRUType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            source=node.get("source"),
+        )
+        results.append(vru)
+    return results
+
+
+# Enrichment resolvers: Transport-maritime
+
+def get_vessel_types(
+    database: str,
+    where: Optional[VesselTypeFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[VesselType]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="VesselType",
+        alias="vessel_type",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name", "type": "type"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[VesselType] = []
+    for rec in records:
+        node = rec["entity"]
+        vessel = VesselType(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+            type=node.get("type"),
+        )
+        results.append(vessel)
+    return results
+
+
+# Enrichment resolvers: Cancer
+
+def get_diseases(
+    database: str,
+    where: Optional[DiseaseFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Disease]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="Disease",
+        alias="disease",
+        filter_input=where,
+        field_map={"id": "id", "name": "name", "type": "type"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[Disease] = []
+    for rec in records:
+        node = rec["entity"]
+        disease = Disease(
+            id=node.get("id"),
+            name=node.get("name"),
+            description=node.get("description"),
+            type=node.get("type"),
+        )
+        results.append(disease)
+    return results
+
+
+def get_drugs(
+    database: str,
+    where: Optional[DrugFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Drug]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="Drug",
+        alias="drug",
+        filter_input=where,
+        field_map={"id": "id", "name": "name"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[Drug] = []
+    for rec in records:
+        node = rec["entity"]
+        drug = Drug(
+            id=node.get("id"),
+            name=node.get("name"),
+            description=node.get("description"),
+        )
+        results.append(drug)
+    return results
+
+
+def get_tissues(
+    database: str,
+    where: Optional[TissueFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Tissue]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="Tissue",
+        alias="tissue",
+        filter_input=where,
+        field_map={"id": "id", "name": "name", "type": "type"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[Tissue] = []
+    for rec in records:
+        node = rec["entity"]
+        tissue = Tissue(
+            id=node.get("id"),
+            name=node.get("name"),
+            description=node.get("description"),
+            type=node.get("type"),
+        )
+        results.append(tissue)
+    return results
+
+
+def get_proteins(
+    database: str,
+    where: Optional[ProteinFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Protein]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="Protein",
+        alias="protein",
+        filter_input=where,
+        field_map={"id": "id", "name": "name", "accession": "accession"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[Protein] = []
+    for rec in records:
+        node = rec["entity"]
+        protein = Protein(
+            id=node.get("id"),
+            name=node.get("name"),
+            accession=node.get("accession"),
+        )
+        results.append(protein)
+    return results
+
+
+def get_genes(
+    database: str,
+    where: Optional[GeneFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Gene]:
+    records = _get_enrichment_with_products(
+        database=database,
+        label="Gene",
+        alias="gene",
+        filter_input=where,
+        field_map={"id": "id", "name": "name", "family": "family"},
+        page=page,
+        page_size=page_size,
+    )
+    results: List[Gene] = []
+    for rec in records:
+        node = rec["entity"]
+        gene = Gene(
+            id=node.get("id"),
+            name=node.get("name"),
+            family=node.get("family"),
+        )
+        results.append(gene)
+    return results
+
+
+# Core neighbour resolvers (shared across graphs, excluding Manifestation)
+
+def _get_neighbors_with_products(
+    database: str,
+    label: str,
+    alias: str,
+    filter_input: Any,
+    field_map: Dict[str, str],
+    page: int,
+    page_size: int,
+    rel_pattern: str,
+) -> List[Dict[str, Any]]:
+    """
+    Generic helper for core neighbours (e.g. Agent, Topic, Grant, ResearchArtifact, Technology),
+    with pagination only on the neighbour entities.
+    """
+    params: Dict[str, Any] = {"skip": (page - 1) * page_size, "limit": page_size}
+    where_clauses: List[str] = []
+
+    _add_string_filter_clauses(alias, filter_input, field_map, where_clauses, params)
+
+    query = f"""
+    MATCH ({alias}:{label})
+    {"WHERE " + " AND ".join(where_clauses) if where_clauses else ""}
+    WITH {alias}
+    SKIP $skip
+    LIMIT $limit
+    RETURN {alias} AS entity
+    """
+
+    logger.info(f"Generated neighbour query for {label}:\n{query}\nParameters: {params}")
+    driver = get_driver(database)
+    records, _, _ = driver.execute_query(query, params)
+
+    results: List[Dict[str, Any]] = []
+    for record in records:
+        entity_node = record["entity"]
+        results.append({"entity": entity_node})
+    return results
+
+
+def get_agents_with_products(
+    database: str,
+    where: Optional[AgentFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Agent]:
+    records = _get_neighbors_with_products(
+        database=database,
+        label="Agent",
+        alias="a",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name"},
+        page=page,
+        page_size=page_size,
+        rel_pattern="(a)-[:HAS_CONTRIBUTED_TO]->(p:Product)",
+    )
+    results: List[Agent] = []
+    for rec in records:
+        node = rec["entity"]
+        agent = Agent(
+            id=node.get("local_identifier"),
+            fullname=node.get("name"),
+            local_identifier=node.get("local_identifier"),
+            website=node.get("website"),
+            name=node.get("name"),
+            family_name=node.get("family_name"),
+            types=node.get("types"),
+            entity_type=node.get("entity_type"),
+            short_name=node.get("short_name"),
+            given_name=node.get("given_name"),
+            other_names=node.get("other_names"),
+            country=node.get("country"),
+        )
+        results.append(agent)
+    return results
+
+
+def get_topics_with_products(
+    database: str,
+    where: Optional[TopicFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Topic]:
+    records = _get_neighbors_with_products(
+        database=database,
+        label="Topic",
+        alias="t",
+        filter_input=where,
+        field_map={"name": "name"},
+        page=page,
+        page_size=page_size,
+        rel_pattern="(p:Product)-[:HAS_TOPIC]->(t)",
+    )
+    results: List[Topic] = []
+    for rec in records:
+        node = rec["entity"]
+        topic = Topic(
+            name=node.get("name"),
+            local_identifier=node.get("local_identifier"),
+            entity_type=node.get("entity_type"),
+        )
+        results.append(topic)
+    return results
+
+
+def get_grants_with_products(
+    database: str,
+    where: Optional[GrantFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Grant]:
+    records = _get_neighbors_with_products(
+        database=database,
+        label="Grant",
+        alias="g",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "title": "title"},
+        page=page,
+        page_size=page_size,
+        rel_pattern="(p:Product)-[:FUNDED_BY]->(g)",
+    )
+    results: List[Grant] = []
+    for rec in records:
+        node = rec["entity"]
+        grant = Grant(
+            id=node.get("local_identifier"),
+            abstract=node.get("abstract"),
+            local_identifier=node.get("local_identifier"),
+            keywords=node.get("keywords"),
+            acronym=node.get("acronym"),
+            website=node.get("website"),
+            duration_start=node.get("duration_start"),
+            funded_amount=node.get("funded_amount"),
+            currency=node.get("currency"),
+            title=node.get("title"),
+            grant_number=node.get("grant_number"),
+            funding_stream=node.get("funding_stream"),
+            duration_end=node.get("duration_end"),
+            entity_type=node.get("entity_type"),
+        )
+        results.append(grant)
+    return results
+
+
+def get_research_artifacts_with_products(
+    database: str,
+    where: Optional[ResearchArtifactFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[ResearchArtifact]:
+    records = _get_neighbors_with_products(
+        database=database,
+        label="ResearchArtifact",
+        alias="ra",
+        filter_input=where,
+        field_map={
+            "local_identifier": "local_identifier",
+            "label": "label",
+            "type": "type",
+        },
+        page=page,
+        page_size=page_size,
+        rel_pattern="(p:Product)-[:HAS_RESEARCH_ARTIFACT]->(ra)",
+    )
+    results: List[ResearchArtifact] = []
+    for rec in records:
+        node = rec["entity"]
+        ra = ResearchArtifact(
+            local_identifier=node.get("local_identifier"),
+            label=node.get("label"),
+            type=node.get("type"),
+        )
+        results.append(ra)
+    return results
+
+
+def get_technologies_with_products(
+    database: str,
+    where: Optional[TechnologyFilter] = None,
+    page: int = 1,
+    page_size: int = 10,
+) -> List[Technology]:
+    records = _get_neighbors_with_products(
+        database=database,
+        label="Technology",
+        alias="tech",
+        filter_input=where,
+        field_map={"local_identifier": "local_identifier", "name": "name"},
+        page=page,
+        page_size=page_size,
+        rel_pattern="(p:Product)-[:HAS_TECHNOLOGY]->(tech)",
+    )
+    results: List[Technology] = []
+    for rec in records:
+        node = rec["entity"]
+        tech = Technology(
+            local_identifier=node.get("local_identifier"),
+            name=node.get("name"),
+        )
+        results.append(tech)
+    return results
 

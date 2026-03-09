@@ -31,6 +31,7 @@ class Product:
     manifestations: List["Manifestation"] = None
     research_artifacts: List["ResearchArtifact"] = None
     technologies: List["Technology"] = None
+
     # graph-specific enrichments grouped by type (vary by graphdb)
     graph_enrichments: Optional["GraphEnrichments"] = None
 
@@ -536,6 +537,8 @@ class GeneFilter:
     id: Optional[StringFilter] = None
     name: Optional[StringFilter] = None
     family: Optional[StringFilter] = None
+
+
 @strawberry.input
 class PidFilter:
     scheme: Optional[StringFilter] = None
