@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scilake Lake API – Documentation</title>
+  <link rel="icon" type="image/png" href="/static/favicon.ico" />
+  <!-- Use GraphiQL's base styling to match look & feel -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/graphiql@3/graphiql.min.css" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+      background-color: #0b1021;
+      color: #f9fafb;
+      min-height: 100vh;
+    }
+    body {
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+    }
+    .shell {
+      width: 100%;
+      max-width: 1040px;
+      background-color: #111827;
+      border-radius: 8px;
+      border: 1px solid #1f2937;
+      box-shadow: 0 0 0 1px #020617;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 20px 24px 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .title { display: flex; flex-direction: column; gap: 4px; }
+    .title h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pill {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: var(--muted);
+    }
+    .subtitle {
+      margin: 0;
+      font-size: 14px;
+      color: #9ca3af;
+    }
+    .btn {
+      border-radius: 999px;
+      border: 1px solid #4b5563;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: #e5e7eb;
+      background: linear-gradient(to right, #10b981, #22c55e);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    main {
+      padding: 18px 24px 22px;
+      display: block;
+    }
+    section {
+      margin-bottom: 24px;
+    }
+    h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin: 0 0 8px;
+    }
+    p {
+      margin: 0 0 8px;
+      font-size: 14px;
+      line-height: 1.55;
+      color: #e5e7eb;
+    }
+    ul { margin: 4px 0 10px 18px; padding: 0; }
+    li {
+      font-size: 14px;
+      margin-bottom: 3px;
+      color: #d1d5db;
+    }
+    code {
+      font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 1px 5px;
+      border-radius: 5px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+    }
+    .code-block {
+      margin-top: 8px;
+      background: #020617;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+      padding: 10px 12px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="title">
+        <h1>
+          Scilake Lake API
+          <span class="pill">GraphQL</span>
+        </h1>
+        <p class="subtitle">
+          Unified access to Scilake's domain-specific graphs and enrichments.
+        </p>
+      </div>
+      <a href="/graphql" class="btn">Open GraphiQL</a>
+    </header>
+
+    <main>
+      <section>
+        <h2>1. Overview</h2>
+        <p>
+          Scilake Lake API is a single GraphQL endpoint that exposes research products
+          across domain-specific graphs (neuroscience, transport-maritime, transport-ccam, energy, cancer), plus
+          graph‑specific enrichment entities (for example vehicle types, tissues, and techniques).
+        </p>
+        <p>
+          All GraphQL queries are served from <code>/graphql</code>. Use the GraphiQL UI at
+          <code>/graphql</code> (GET) to explore the schema and run queries.
+        </p>
+      </section>
+
+      <section>
+        <h2>2. Selecting a graph</h2>
+        <p>
+          Every request must include a <code>graphdb</code> header to select the active graph:
+        </p>
+        <ul>
+          <li><code>graphdb: neuroscience</code></li>
+          <li><code>graphdb: transport-maritime</code></li>
+          <li><code>graphdb: transport-ccam</code></li>
+          <li><code>graphdb: energy</code></li>
+          <li><code>graphdb: cancer</code></li>
+        </ul>
+        <p>
+          In GraphiQL, set this under the “Headers” panel:
+        </p>
+        <div class="code-block"><code>{
+  "graphdb": "energy"
+}</code></div>
+      </section>
+
+      <section>
+        <h2>3. Domain-specific enrichments</h2>
+        <p>
+          Each graph has its own enrichment entities connected to products; 
+          these entities are returned as part of the <code>getProducts</code> query, but can also be accessed through dedicated queries:
+        </p>
+        <ul>
+          <li><strong>Energy</strong>: EnergyType, EnergyStorage, GeographicEntity</li>
+          <li><strong>Neuroscience</strong>: Technique, Species, UBERONParcellation, BiologicalSex, PreparationType</li>
+          <li><strong>Transport‑CCAM</strong>: CommunicationType, EntityConnectionType, LevelOfAutomation, ScenarioType, SensorType, VehicleType, VRUType</li>
+          <li><strong>Transport‑maritime</strong>: VesselType</li>
+          <li><strong>Cancer</strong>: Disease, Drug, Tissue, Protein, Gene</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>4. Example queries</h2>
+
+        <h3 style="font-size:14px;margin:4px 0 4px;">4.1 Products (all graphs)</h3>
+        <p>
+          This example returns the first page of products whose title contains “battery”, along with
+          basic impact indicators.
+        </p>
+        <div class="code-block"><code>query ProductsExample {
+  getProducts(
+    where: {
+      product: {
+        title: { contains: "battery" }
+      }
+    }
+    page: 1
+    pageSize: 10
+  ) {
+    id
+    title
+    productType
+    citationCount
+    popularity
+  }
+}</code></div>
+
+        <h3 style="font-size:14px;margin:10px 0 4px;">4.2 Products filtered by technology and impact</h3>
+        <p>
+          This example returns products that (a) mention the technology “smart traffic signals” and
+          (b) have a citation count greater than 2, using a combined <code>AND</code> filter.
+        </p>
+        <div class="code-block"><code>query ComplexProductsExample {
+  getProducts(
+    where: {
+      AND: [
+        {
+          technology: {
+            name: {
+              equals: "smart traffic signals"
+            }
+          }
+        },
+        {
+          product: {
+            citationCount: {
+              gt: 2
+            }
+          }
+        }
+      ]
+    }
+    page: 1
+    pageSize: 100
+  ) {
+    id
+    title
+    productType
+    impulse
+    citationCount
+    popularity
+    technologies {
+      localIdentifier
+      name
+    }
+  }
+}</code></div>
+
+        <h3 style="font-size:14px;margin:10px 0 4px;">4.3 Transport‑CCAM – vehicle types</h3>
+        <p>
+          This example lists vehicle types named “Motorcycle” from the transport‑ccam graph.
+        </p>
+        <div class="code-block"><code>query VehicleTypesExample {
+  getVehicleTypes(
+    where: { name: { equals: "Motorcycle" } }
+    page: 1
+    pageSize: 20
+  ) {
+    localIdentifier
+    name
+    source
+  }
+}</code></div>
+
+        <h3 style="font-size:14px;margin:10px 0 4px;">4.4 Cancer – diseases</h3>
+        <p>
+          This example shows how to search for diseases in the cancer graph whose name contains “breast”.
+        </p>
+        <div class="code-block"><code>query DiseasesExample {
+  getDiseases(
+    where: { name: { contains: "breast" } }
+    page: 1
+    pageSize: 20
+  ) {
+    id
+    name
+    type
+  }
+}</code></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
+

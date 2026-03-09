@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse
 from strawberry.fastapi import GraphQLRouter
 from app.queries import Queries
 from app.graphiql_template import get_graphiql_html
+from pathlib import Path
 
 schema = strawberry.Schema(query=Queries)
 
@@ -14,6 +15,16 @@ app = FastAPI()
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/", include_in_schema=False)
+async def docs():
+    """
+    Minimal HTML documentation landing page.
+    """
+    docs_path = Path(__file__).resolve().parent / "docs.html"
+    html = docs_path.read_text(encoding="utf-8")
+    return HTMLResponse(html)
 
 # Custom GraphiQL endpoint
 @app.get("/graphql", include_in_schema=False)
