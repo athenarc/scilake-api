@@ -22,8 +22,15 @@ def get_products(
     include_pids = "pids" in selected_fields
     include_grants = "grants" in selected_fields
     include_manifestations = "manifestations" in selected_fields
-    include_research_artifacts = "research_artifacts" in selected_fields
+    # Strawberry exposes snake_case fields as camelCase in GraphQL (e.g. researchArtifacts, graphEnrichments),
+    # so we check for both representations in the selected field names.
+    include_research_artifacts = (
+        "research_artifacts" in selected_fields or "researchArtifacts" in selected_fields
+    )
     include_technologies = "technologies" in selected_fields
+    include_graph_enrichments = (
+        "graph_enrichments" in selected_fields or "graphEnrichments" in selected_fields
+    )
 
     params = {
         "skip": (page - 1) * page_size,
@@ -32,6 +39,8 @@ def get_products(
 
     match_clauses = ["MATCH (p:Product)"]  # Start with base MATCH for Product nodes
     optional_match_clauses = []  # Store OPTIONAL MATCH clauses
+    graph_entity_with_parts: List[str] = []  # extra WITH projections for graph-specific entities
+    graph_entity_return_parts: List[str] = []  # extra RETURN parts for graph-specific entities
     where_clauses = []
 
     # Convert `where` object to Cypher conditions
@@ -117,10 +126,10 @@ def get_products(
 
         if filter_obj.agent:
             match_clauses.append("MATCH (p)<-[:HAS_CONTRIBUTED_TO]-(a:Agent)")
-            if filter_obj.agent.id:
-                add_clause("a.local_identifier", filter_obj.agent.id)
-            if filter_obj.agent.fullname:
-                add_clause("a.name", filter_obj.agent.fullname)
+            if filter_obj.agent.local_identifier:
+                add_clause("a.local_identifier", filter_obj.agent.local_identifier)
+            if filter_obj.agent.name:
+                add_clause("a.name", filter_obj.agent.name)
 
         if filter_obj.topic:
             match_clauses.append("MATCH (p)-[:HAS_TOPIC]->(t:Topic)")
@@ -161,6 +170,238 @@ def get_products(
             if filter_obj.technology.name:
                 add_clause("tech.name", filter_obj.technology.name)
 
+        # graph-specific filters per graph (all resolved through the current graphdb)
+        if getattr(filter_obj, "energy_type", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(et:EnergyType)")
+            if filter_obj.energy_type.local_identifier:
+                add_clause("et.local_identifier", filter_obj.energy_type.local_identifier)
+            if filter_obj.energy_type.name:
+                add_clause("et.name", filter_obj.energy_type.name)
+            if filter_obj.energy_type.source:
+                add_clause("et.source", filter_obj.energy_type.source)
+
+        if getattr(filter_obj, "energy_storage", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(es:EnergyStorage)")
+            if filter_obj.energy_storage.local_identifier:
+                add_clause("es.local_identifier", filter_obj.energy_storage.local_identifier)
+            if filter_obj.energy_storage.name:
+                add_clause("es.name", filter_obj.energy_storage.name)
+            if filter_obj.energy_storage.source:
+                add_clause("es.source", filter_obj.energy_storage.source)
+
+        if getattr(filter_obj, "geographic_entity", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(ge:GeographicEntity)")
+            if filter_obj.geographic_entity.local_identifier:
+                add_clause("ge.local_identifier", filter_obj.geographic_entity.local_identifier)
+            if filter_obj.geographic_entity.name:
+                add_clause("ge.name", filter_obj.geographic_entity.name)
+            if filter_obj.geographic_entity.display_name:
+                add_clause("ge.display_name", filter_obj.geographic_entity.display_name)
+            if filter_obj.geographic_entity.wikidata:
+                add_clause("ge.wikidata", filter_obj.geographic_entity.wikidata)
+
+        if getattr(filter_obj, "technique", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(technique:Technique)")
+            if filter_obj.technique.local_identifier:
+                add_clause("technique.local_identifier", filter_obj.technique.local_identifier)
+            if filter_obj.technique.name:
+                add_clause("technique.name", filter_obj.technique.name)
+            if filter_obj.technique.source:
+                add_clause("technique.source", filter_obj.technique.source)
+
+        if getattr(filter_obj, "species", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(species:Species)")
+            if filter_obj.species.local_identifier:
+                add_clause("species.local_identifier", filter_obj.species.local_identifier)
+            if filter_obj.species.name:
+                add_clause("species.name", filter_obj.species.name)
+            if filter_obj.species.source:
+                add_clause("species.source", filter_obj.species.source)
+
+        if getattr(filter_obj, "uberon_parcellation", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(uberon:UBERONParcellation)")
+            if filter_obj.uberon_parcellation.local_identifier:
+                add_clause(
+                    "uberon.local_identifier",
+                    filter_obj.uberon_parcellation.local_identifier,
+                )
+            if filter_obj.uberon_parcellation.name:
+                add_clause("uberon.name", filter_obj.uberon_parcellation.name)
+            if filter_obj.uberon_parcellation.source:
+                add_clause("uberon.source", filter_obj.uberon_parcellation.source)
+
+        if getattr(filter_obj, "biological_sex", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(biosex:BiologicalSex)")
+            if filter_obj.biological_sex.local_identifier:
+                add_clause(
+                    "biosex.local_identifier",
+                    filter_obj.biological_sex.local_identifier,
+                )
+            if filter_obj.biological_sex.name:
+                add_clause("biosex.name", filter_obj.biological_sex.name)
+            if filter_obj.biological_sex.source:
+                add_clause("biosex.source", filter_obj.biological_sex.source)
+
+        if getattr(filter_obj, "preparation_type", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(prep:PreparationType)")
+            if filter_obj.preparation_type.local_identifier:
+                add_clause(
+                    "prep.local_identifier",
+                    filter_obj.preparation_type.local_identifier,
+                )
+            if filter_obj.preparation_type.name:
+                add_clause("prep.name", filter_obj.preparation_type.name)
+            if filter_obj.preparation_type.source:
+                add_clause("prep.source", filter_obj.preparation_type.source)
+
+        if getattr(filter_obj, "communication_type", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(comm_type:CommunicationType)")
+            if filter_obj.communication_type.local_identifier:
+                add_clause(
+                    "comm_type.local_identifier",
+                    filter_obj.communication_type.local_identifier,
+                )
+            if filter_obj.communication_type.name:
+                add_clause("comm_type.name", filter_obj.communication_type.name)
+            if filter_obj.communication_type.source:
+                add_clause("comm_type.source", filter_obj.communication_type.source)
+
+        if getattr(filter_obj, "entity_connection_type", None):
+            match_clauses.append(
+                "MATCH (p)-[:MENTIONS]->(entity_conn_type:EntityConnectionType)"
+            )
+            if filter_obj.entity_connection_type.local_identifier:
+                add_clause(
+                    "entity_conn_type.local_identifier",
+                    filter_obj.entity_connection_type.local_identifier,
+                )
+            if filter_obj.entity_connection_type.name:
+                add_clause(
+                    "entity_conn_type.name", filter_obj.entity_connection_type.name
+                )
+            if filter_obj.entity_connection_type.source:
+                add_clause(
+                    "entity_conn_type.source", filter_obj.entity_connection_type.source
+                )
+
+        if getattr(filter_obj, "level_of_automation", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(loa:LevelOfAutomation)")
+            if filter_obj.level_of_automation.local_identifier:
+                add_clause(
+                    "loa.local_identifier",
+                    filter_obj.level_of_automation.local_identifier,
+                )
+            if filter_obj.level_of_automation.name:
+                add_clause("loa.name", filter_obj.level_of_automation.name)
+            if filter_obj.level_of_automation.source:
+                add_clause("loa.source", filter_obj.level_of_automation.source)
+
+        if getattr(filter_obj, "scenario_type", None):
+            match_clauses.append(
+                "MATCH (p)-[:MENTIONS]->(scenario_type:ScenarioType)"
+            )
+            if filter_obj.scenario_type.local_identifier:
+                add_clause(
+                    "scenario_type.local_identifier",
+                    filter_obj.scenario_type.local_identifier,
+                )
+            if filter_obj.scenario_type.name:
+                add_clause("scenario_type.name", filter_obj.scenario_type.name)
+            if filter_obj.scenario_type.source:
+                add_clause("scenario_type.source", filter_obj.scenario_type.source)
+
+        if getattr(filter_obj, "sensor_type", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(sensor_type:SensorType)")
+            if filter_obj.sensor_type.local_identifier:
+                add_clause(
+                    "sensor_type.local_identifier",
+                    filter_obj.sensor_type.local_identifier,
+                )
+            if filter_obj.sensor_type.name:
+                add_clause("sensor_type.name", filter_obj.sensor_type.name)
+            if filter_obj.sensor_type.source:
+                add_clause("sensor_type.source", filter_obj.sensor_type.source)
+
+        if getattr(filter_obj, "vehicle_type", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(vehicle_type:VehicleType)")
+            if filter_obj.vehicle_type.local_identifier:
+                add_clause(
+                    "vehicle_type.local_identifier",
+                    filter_obj.vehicle_type.local_identifier,
+                )
+            if filter_obj.vehicle_type.name:
+                add_clause("vehicle_type.name", filter_obj.vehicle_type.name)
+            if filter_obj.vehicle_type.source:
+                add_clause("vehicle_type.source", filter_obj.vehicle_type.source)
+
+        if getattr(filter_obj, "vru_type", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(vru_type:VRUType)")
+            if filter_obj.vru_type.local_identifier:
+                add_clause(
+                    "vru_type.local_identifier",
+                    filter_obj.vru_type.local_identifier,
+                )
+            if filter_obj.vru_type.name:
+                add_clause("vru_type.name", filter_obj.vru_type.name)
+            if filter_obj.vru_type.source:
+                add_clause("vru_type.source", filter_obj.vru_type.source)
+
+        if getattr(filter_obj, "vessel_type", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(vessel_type:VesselType)")
+            if filter_obj.vessel_type.local_identifier:
+                add_clause(
+                    "vessel_type.local_identifier",
+                    filter_obj.vessel_type.local_identifier,
+                )
+            if filter_obj.vessel_type.name:
+                add_clause("vessel_type.name", filter_obj.vessel_type.name)
+            if filter_obj.vessel_type.type:
+                add_clause("vessel_type.type", filter_obj.vessel_type.type)
+
+        if getattr(filter_obj, "disease", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(disease:Disease)")
+            if filter_obj.disease.id:
+                add_clause("disease.id", filter_obj.disease.id)
+            if filter_obj.disease.name:
+                add_clause("disease.name", filter_obj.disease.name)
+            if filter_obj.disease.type:
+                add_clause("disease.type", filter_obj.disease.type)
+
+        if getattr(filter_obj, "drug", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(drug:Drug)")
+            if filter_obj.drug.id:
+                add_clause("drug.id", filter_obj.drug.id)
+            if filter_obj.drug.name:
+                add_clause("drug.name", filter_obj.drug.name)
+
+        if getattr(filter_obj, "tissue", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(tissue:Tissue)")
+            if filter_obj.tissue.id:
+                add_clause("tissue.id", filter_obj.tissue.id)
+            if filter_obj.tissue.name:
+                add_clause("tissue.name", filter_obj.tissue.name)
+            if filter_obj.tissue.type:
+                add_clause("tissue.type", filter_obj.tissue.type)
+
+        if getattr(filter_obj, "protein", None):
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(protein:Protein)")
+            if filter_obj.protein.id:
+                add_clause("protein.id", filter_obj.protein.id)
+            if filter_obj.protein.name:
+                add_clause("protein.name", filter_obj.protein.name)
+            if filter_obj.protein.accession:
+                add_clause("protein.accession", filter_obj.protein.accession)
+
+        if getattr(filter_obj, "gene", None):
+            # Genes are typically reached through proteins; we still model a direct mention pattern here.
+            match_clauses.append("MATCH (p)-[:MENTIONS]->(gene:Gene)")
+            if filter_obj.gene.id:
+                add_clause("gene.id", filter_obj.gene.id)
+            if filter_obj.gene.name:
+                add_clause("gene.name", filter_obj.gene.name)
+            if filter_obj.gene.family:
+                add_clause("gene.family", filter_obj.gene.family)
+
         return " AND ".join(clauses)
     
     # Apply filtering if `where` is provided
@@ -187,7 +428,217 @@ def get_products(
     if include_technologies:
         optional_match_clauses.append("OPTIONAL MATCH (p)-[:HAS_TECHNOLOGY]->(tech:Technology)")
 
+    # graph-specific OPTIONAL MATCHes and WITH/RETURN projections
+    if include_graph_enrichments:
+        # helper: check if any selected field path starts with a given prefix
+        def field_selected(prefix: str) -> bool:
+            return any(f.startswith(prefix) for f in selected_fields)
+
+        if database == "energy":
+            if field_selected("graphEnrichments.energyTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(et:EnergyType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT et) AS energy_types"
+                )
+                graph_entity_return_parts.append("energy_types")
+
+            if field_selected("graphEnrichments.energyStorages"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(es:EnergyStorage)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT es) AS energy_storages"
+                )
+                graph_entity_return_parts.append("energy_storages")
+
+            if field_selected("graphEnrichments.geographicEntities"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(ge:GeographicEntity)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT ge) AS geographic_entities"
+                )
+                graph_entity_return_parts.append("geographic_entities")
+
+        elif database == "neuroscience":
+            if field_selected("graphEnrichments.techniques"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(technique:Technique)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT technique) AS techniques"
+                )
+                graph_entity_return_parts.append("techniques")
+
+            if field_selected("graphEnrichments.species"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(species:Species)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT species) AS species_list"
+                )
+                graph_entity_return_parts.append("species_list")
+
+            if field_selected("graphEnrichments.uberonParcellations"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(uberon:UBERONParcellation)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT uberon) AS uberon_parcellations"
+                )
+                graph_entity_return_parts.append("uberon_parcellations")
+
+            if field_selected("graphEnrichments.biologicalSexes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(biosex:BiologicalSex)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT biosex) AS biological_sexes"
+                )
+                graph_entity_return_parts.append("biological_sexes")
+
+            if field_selected("graphEnrichments.preparationTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(prep:PreparationType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT prep) AS preparation_types"
+                )
+                graph_entity_return_parts.append("preparation_types")
+
+        elif database == "transport-ccam":
+            if field_selected("graphEnrichments.communicationTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(comm_type:CommunicationType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT comm_type) AS communication_types"
+                )
+                graph_entity_return_parts.append("communication_types")
+
+            if field_selected("graphEnrichments.entityConnectionTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(entity_conn_type:EntityConnectionType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT entity_conn_type) AS entity_connection_types"
+                )
+                graph_entity_return_parts.append("entity_connection_types")
+
+            if field_selected("graphEnrichments.levelsOfAutomation"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(loa:LevelOfAutomation)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT loa) AS levels_of_automation"
+                )
+                graph_entity_return_parts.append("levels_of_automation")
+
+            if field_selected("graphEnrichments.scenarioTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(scenario_type:ScenarioType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT scenario_type) AS scenario_types"
+                )
+                graph_entity_return_parts.append("scenario_types")
+
+            if field_selected("graphEnrichments.sensorTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(sensor_type:SensorType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT sensor_type) AS sensor_types"
+                )
+                graph_entity_return_parts.append("sensor_types")
+
+            if field_selected("graphEnrichments.vehicleTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(vehicle_type:VehicleType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT vehicle_type) AS vehicle_types"
+                )
+                graph_entity_return_parts.append("vehicle_types")
+
+            if field_selected("graphEnrichments.vruTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(vru_type:VRUType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT vru_type) AS vru_types"
+                )
+                graph_entity_return_parts.append("vru_types")
+
+        elif database == "transport-maritime":
+            if field_selected("graphEnrichments.vesselTypes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(vessel_type:VesselType)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT vessel_type) AS vessel_types"
+                )
+                graph_entity_return_parts.append("vessel_types")
+
+        elif database == "cancer":
+            # Cancer graph: domain entities such as Disease, Drug, Tissue, Protein, Gene.
+            # These may be connected through domain-specific subgraphs; we model them via generic mention edges when present.
+            if field_selected("graphEnrichments.diseases"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(disease:Disease)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT disease) AS diseases"
+                )
+                graph_entity_return_parts.append("diseases")
+
+            if field_selected("graphEnrichments.drugs"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(drug:Drug)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT drug) AS drugs"
+                )
+                graph_entity_return_parts.append("drugs")
+
+            if field_selected("graphEnrichments.tissues"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(tissue:Tissue)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT tissue) AS tissues"
+                )
+                graph_entity_return_parts.append("tissues")
+
+            if field_selected("graphEnrichments.proteins"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(protein:Protein)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT protein) AS proteins"
+                )
+                graph_entity_return_parts.append("proteins")
+
+            if field_selected("graphEnrichments.genes"):
+                optional_match_clauses.append(
+                    "OPTIONAL MATCH (p)-[:MENTIONS]->(gene:Gene)"
+                )
+                graph_entity_with_parts.append(
+                    "collect(DISTINCT gene) AS genes"
+                )
+                graph_entity_return_parts.append("genes")
+
     # Construct the final query
+    graph_entity_with_clause = (
+        (", " + ", ".join(graph_entity_with_parts)) if graph_entity_with_parts else ""
+    )
+    graph_entity_return_clause = (
+        (", " + ", ".join(graph_entity_return_parts))
+        if graph_entity_return_parts
+        else ""
+    )
     order_clause = f"ORDER BY p.{sort_by} {sort_order}" if sort_by and sort_order else ""
 
     query = f"""
@@ -202,6 +653,7 @@ def get_products(
     {", collect(DISTINCT m) AS manifestations" if include_manifestations else ""}
     {", collect(DISTINCT ra) AS research_artifacts" if include_research_artifacts else ""}
     {", collect(DISTINCT tech) AS technologies" if include_technologies else ""}
+    {graph_entity_with_clause}
     RETURN p 
     {", topics" if include_topics else ""} 
     {", agents" if include_agents else ""}
@@ -210,6 +662,7 @@ def get_products(
     {", manifestations" if include_manifestations else ""}
     {", research_artifacts" if include_research_artifacts else ""}
     {", technologies" if include_technologies else ""}
+    {graph_entity_return_clause}
     {order_clause}
     SKIP $skip
     LIMIT $limit
