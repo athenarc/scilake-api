@@ -1,4 +1,4 @@
-# SciLake GraphQL API
+# SciLake Lake API
 
 The Lake API is SciLake's GraphQL web service for unified, SKG-IF-aligned access to all five pilot Scientific Knowledge Graphs and the OpenAIRE-derived core. A shared schema covers the SKG-IF entity model; each pilot adds domain-specific extensions on top.
 
